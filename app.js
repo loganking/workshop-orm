@@ -67,8 +67,16 @@ var User = Waterline.Collection.extend({
 
   attributes: {
     first_name: 'string',
-    last_name: 'string'
+    last_name: 'string',
+
+    pets: {
+      collection: 'pet',
+      via: 'owners',
+      dominant: true
+    }
+
   }
+
 });
 
 var Pet = Waterline.Collection.extend({
@@ -78,8 +86,14 @@ var Pet = Waterline.Collection.extend({
 
   attributes: {
     name: 'string',
-    breed: 'string'
+    breed: 'string',
+
+    owners: {
+      collection: 'user',
+      via: 'pets'
+    }
   }
+
 });
 
 
@@ -102,23 +116,23 @@ app.use(methodOverride());
 // Build Express Routes (CRUD routes for /users)
 
 app.get('/users', function(req, res) {
-  app.models.user.find().exec(function(err, models) {
+  app.models.user.find().populate('pets').exec(function(err, users) {
     if(err) return res.json({ err: err }, 500);
-    res.json(models);
+    res.json(users);
   });
 });
 
 app.post('/users', function(req, res) {
-  app.models.user.create(req.body, function(err, model) {
+  app.models.user.create(req.body, function(err, user) {
     if(err) return res.json({ err: err }, 500);
-    res.json(model);
+    res.json(user);
   });
 });
 
 app.get('/users/:id', function(req, res) {
-  app.models.user.findOne({ id: req.params.id }, function(err, model) {
+  app.models.user.findOne({ id: req.params.id }).populate('pets').exec(function(err, user) {
     if(err) return res.json({ err: err }, 500);
-    res.json(model);
+    res.json(user);
   });
 });
 
@@ -133,9 +147,82 @@ app.put('/users/:id', function(req, res) {
   // Don't pass ID to update
   delete req.body.id;
 
-  app.models.user.update({ id: req.params.id }, req.body, function(err, model) {
+  app.models.user.update({ id: req.params.id }, req.body, function(err, user) {
     if(err) return res.json({ err: err }, 500);
-    res.json(model);
+    res.json(user);
+  });
+});
+
+// this route allows you to create pets for a specific user
+app.post('/users/:id/pets', function(req, res) {
+  app.models.user.findOne({ id: req.params.id }, function(err, user) {
+    if(err) return res.json({ err: err }, 500);
+    user.pets.add(req.body);
+    user.save(function(err) {
+      if(err) return res.json({ err: err }, 500);
+      res.json(user);
+    });
+  });
+});
+
+// Build Express Routes (CRUD routes for /pets)
+
+app.get('/pets', function(req, res) {
+  app.models.pet.find().exec(function(err, pets) {
+    if(err) return res.json({ err: err }, 500);
+    res.json(pets);
+  });
+});
+
+app.post('/pets', function(req, res) {
+  app.models.pet.create(req.body, function(err, pet) {
+    if(err) return res.json({ err: err }, 500);
+    res.json(pet);
+  });
+});
+
+app.get('/pets/:id', function(req, res) {
+  app.models.pet.findOne({ id: req.params.id }, function(err, pet) {
+    if(err) return res.json({ err: err }, 500);
+    res.json(pet);
+  });
+});
+
+app.delete('/pets/:id', function(req, res) {
+  app.models.pet.destroy({ id: req.params.id }, function(err) {
+    if(err) return res.json({ err: err }, 500);
+    res.json({ status: 'ok' });
+  });
+});
+
+app.put('/pets/:id', function(req, res) {
+  // Don't pass ID to update
+  delete req.body.id;
+
+  app.models.pet.update({ id: req.params.id }, req.body, function(err, pet) {
+    if(err) return res.json({ err: err }, 500);
+    res.json(pet);
+  });
+});
+
+// manually join existing pets
+// this route won't work if you don't have two users (with ids 1 & 2) and two pets (with ids 1 & 2) in the system
+app.get('/connect_pets', function(req, res) {
+  app.models.user.findOne(1).exec(function(err, user){
+    if(err) return res.json({ err: err }, 500);
+    user.pets.add(1);
+    user.pets.add(2);
+    user.save(function(err) {
+      if(err) return res.json({ err: err }, 500);
+      app.models.user.findOne(2).exec(function(err, user){
+        if(err) return res.json({ err: err }, 500);
+        user.pets.add(2);
+        user.save(function(err) {
+          if(err) return res.json({ err: err }, 500);
+          res.json({status:'success'}, 200);
+        });
+      });
+    });
   });
 });
 
