@@ -115,6 +115,10 @@ app.use(methodOverride());
 
 // Build Express Routes (CRUD routes for /users)
 
+app.get('/', function(req, res) {
+  res.send('This app is just an api. Use postman to create, edit, and delete resources. Then view the JSON in the browser. See the route handlers in app.js to determine what you can do.');
+});
+
 app.get('/users', function(req, res) {
   app.models.user.find().populate('pets').exec(function(err, users) {
     if(err) return res.json({ err: err }, 500);
